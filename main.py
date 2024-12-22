@@ -64,46 +64,76 @@ def cargar_clave(nombre):
         print(f"[ERROR] No se encontró la clave para {nombre}. Registra primero la cara.")
         return None
 
-# ------------------- Función para cifrar archivos ------------------- #
-def cifrar_archivos(archivos, nombre):
+# ------------------- Función para cifrar archivos y carpetas ------------------- #
+def cifrar_archivos_o_carpetas(ruta, nombre):
     clave = cargar_clave(nombre) or generar_clave(nombre)
     fernet = Fernet(clave)
 
-    for archivo in archivos:
-        if os.path.isfile(archivo):
-            try:
-                with open(archivo, "rb") as file:
-                    contenido = file.read()
-                contenido_cifrado = fernet.encrypt(contenido)
-                with open(archivo, "wb") as file:
-                    file.write(contenido_cifrado)
-                print(f"[INFO] Archivo cifrado: {archivo}")
-            except Exception as e:
-                print(f"[ERROR] No se pudo cifrar el archivo {archivo}: {e}")
+    if os.path.isfile(ruta):
+        # Cifrar un único archivo
+        try:
+            with open(ruta, "rb") as file:
+                contenido = file.read()
+            contenido_cifrado = fernet.encrypt(contenido)
+            with open(ruta, "wb") as file:
+                file.write(contenido_cifrado)
+            print(f"[INFO] Archivo cifrado: {ruta}")
+        except Exception as e:
+            print(f"[ERROR] No se pudo cifrar el archivo {ruta}: {e}")
 
-    print(f"[INFO] Archivos cifrados correctamente.")
+    elif os.path.isdir(ruta):
+        # Cifrar todos los archivos dentro de la carpeta
+        for root, _, files in os.walk(ruta):
+            for file in files:
+                archivo_path = os.path.join(root, file)
+                try:
+                    with open(archivo_path, "rb") as file:
+                        contenido = file.read()
+                    contenido_cifrado = fernet.encrypt(contenido)
+                    with open(archivo_path, "wb") as file:
+                        file.write(contenido_cifrado)
+                    print(f"[INFO] Archivo cifrado: {archivo_path}")
+                except Exception as e:
+                    print(f"[ERROR] No se pudo cifrar el archivo {archivo_path}: {e}")
 
-# ------------------- Función para descifrar archivos ------------------- #
-def descifrar_archivos(archivos, nombre):
+    print(f"[INFO] Cifrado completado para: {ruta}")
+
+# ------------------- Función para descifrar archivos y carpetas ------------------- #
+def descifrar_archivos_o_carpetas(ruta, nombre):
     clave = cargar_clave(nombre)
     if clave is None:
         return
 
     fernet = Fernet(clave)
 
-    for archivo in archivos:
-        if os.path.isfile(archivo):
-            try:
-                with open(archivo, "rb") as file:
-                    contenido_cifrado = file.read()
-                contenido_descifrado = fernet.decrypt(contenido_cifrado)
-                with open(archivo, "wb") as file:
-                    file.write(contenido_descifrado)
-                print(f"[INFO] Archivo descifrado: {archivo}")
-            except Exception as e:
-                print(f"[ERROR] No se pudo descifrar el archivo {archivo}: {e}")
+    if os.path.isfile(ruta):
+        # Descifrar un único archivo
+        try:
+            with open(ruta, "rb") as file:
+                contenido_cifrado = file.read()
+            contenido_descifrado = fernet.decrypt(contenido_cifrado)
+            with open(ruta, "wb") as file:
+                file.write(contenido_descifrado)
+            print(f"[INFO] Archivo descifrado: {ruta}")
+        except Exception as e:
+            print(f"[ERROR] No se pudo descifrar el archivo {ruta}: {e}")
 
-    print(f"[INFO] Archivos descifrados correctamente.")
+    elif os.path.isdir(ruta):
+        # Descifrar todos los archivos dentro de la carpeta
+        for root, _, files in os.walk(ruta):
+            for file in files:
+                archivo_path = os.path.join(root, file)
+                try:
+                    with open(archivo_path, "rb") as file:
+                        contenido_cifrado = file.read()
+                    contenido_descifrado = fernet.decrypt(contenido_cifrado)
+                    with open(archivo_path, "wb") as file:
+                        file.write(contenido_descifrado)
+                    print(f"[INFO] Archivo descifrado: {archivo_path}")
+                except Exception as e:
+                    print(f"[ERROR] No se pudo descifrar el archivo {archivo_path}: {e}")
+
+    print(f"[INFO] Descifrado completado para: {ruta}")
 
 # ------------------- Función para entrenar el modelo de reconocimiento facial ------------------- #
 def entrenar_modelo():
@@ -203,8 +233,8 @@ def menu():
         print("\n--- Sistema de Autenticación Facial ---")
         print("1. Registrar una nueva cara")
         print("2. Entrenar modelo de reconocimiento")
-        print("3. Proteger archivos")
-        print("4. Desbloquear archivos")
+        print("3. Proteger archivos o carpetas")
+        print("4. Desbloquear archivos o carpetas")
         print("5. Salir")
         opcion = input("Selecciona una opción: ")
 
@@ -218,31 +248,22 @@ def menu():
         elif opcion == "3":
             nombre = autenticar_cara()
             if nombre:
-                print("[INFO] Selecciona los archivos a proteger.")
-                archivos = filedialog.askopenfilenames(
-                    title="Selecciona archivos a proteger",
-                    filetypes=[("Todos los archivos", "*.*")]
-                )
-                if archivos:
-                    cifrar_archivos(archivos, nombre)
+                print("[INFO] Selecciona un archivo o carpeta a proteger.")
+                ruta = filedialog.askopenfilename(title="Selecciona un archivo") or filedialog.askdirectory(title="Selecciona una carpeta")
+                if ruta:
+                    cifrar_archivos_o_carpetas(ruta, nombre)
                 else:
-                    print("[ERROR] No se seleccionaron archivos.")
+                    print("[ERROR] No se seleccionó ninguna ruta.")
 
         elif opcion == "4":
             nombre = autenticar_cara()
             if nombre:
-                print("[INFO] Selecciona los archivos a desbloquear.")
-                try:
-                    archivos = filedialog.askopenfilenames(
-                        title="Selecciona archivos a desbloquear",
-                        filetypes=[("Todos los archivos", "*.*")]
-                    )
-                    if archivos:
-                        descifrar_archivos(archivos, nombre)
-                    else:
-                        print("[ERROR] No se seleccionaron archivos.")
-                except Exception as e:
-                    print(f"[ERROR] Error al seleccionar archivos: {e}")
+                print("[INFO] Selecciona un archivo o carpeta a desbloquear.")
+                ruta = filedialog.askopenfilename(title="Selecciona un archivo") or filedialog.askdirectory(title="Selecciona una carpeta")
+                if ruta:
+                    descifrar_archivos_o_carpetas(ruta, nombre)
+                else:
+                    print("[ERROR] No se seleccionó ninguna ruta.")
 
         elif opcion == "5":
             print("Saliendo del sistema...")
