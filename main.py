@@ -5,6 +5,10 @@ import numpy as np
 import pickle
 from tkinter import Tk
 from tkinter import filedialog
+from tkinter import Tk, Button, Label, Entry, filedialog, messagebox
+from functools import partial
+
+
 
 # ------------------- Función para registrar una cara ------------------- #
 def registrar_cara(nombre):
@@ -30,11 +34,11 @@ def registrar_cara(nombre):
         rostros = detector.detectMultiScale(gris, scaleFactor=1.1, minNeighbors=5)
 
         for (x, y, w, h) in rostros:
-            cara = gris[y:y+h, x:x+w]
+            cara = gris[y:y + h, x:x + w]
             cara = cv2.resize(cara, (200, 200))
             cv2.imwrite(f"{ruta}/{contador}.jpg", cara)
             contador += 1
-            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
         cv2.imshow("Registro de Cara", frame)
 
@@ -44,6 +48,7 @@ def registrar_cara(nombre):
     camara.release()
     cv2.destroyAllWindows()
     print(f"[INFO] Registro completado para: {nombre}.")
+
 
 # ------------------- Función para generar una clave por usuario ------------------- #
 def generar_clave(nombre):
@@ -55,6 +60,7 @@ def generar_clave(nombre):
     print(f"[INFO] Clave de cifrado generada para {nombre}.")
     return clave
 
+
 # ------------------- Función para cargar la clave ------------------- #
 def cargar_clave(nombre):
     ruta_clave = f"datos/claves/{nombre}.key"
@@ -63,6 +69,7 @@ def cargar_clave(nombre):
     else:
         print(f"[ERROR] No se encontró la clave para {nombre}. Registra primero la cara.")
         return None
+
 
 # ------------------- Función para cifrar archivos y carpetas ------------------- #
 def cifrar_archivos_o_carpetas(ruta, nombre):
@@ -97,6 +104,7 @@ def cifrar_archivos_o_carpetas(ruta, nombre):
                     print(f"[ERROR] No se pudo cifrar el archivo {archivo_path}: {e}")
 
     print(f"[INFO] Cifrado completado para: {ruta}")
+
 
 # ------------------- Función para descifrar archivos y carpetas ------------------- #
 def descifrar_archivos_o_carpetas(ruta, nombre):
@@ -135,6 +143,7 @@ def descifrar_archivos_o_carpetas(ruta, nombre):
 
     print(f"[INFO] Descifrado completado para: {ruta}")
 
+
 # ------------------- Función para entrenar el modelo de reconocimiento facial ------------------- #
 def entrenar_modelo():
     labels = []
@@ -166,6 +175,8 @@ def entrenar_modelo():
     with open("datos/modelos/label_dict.pkl", "wb") as f:
         pickle.dump(label_dict, f)
     print("[INFO] Modelo entrenado y guardado.")
+
+
 
 # ------------------- Función para autenticar una cara ------------------- #
 def autenticar_cara():
@@ -202,10 +213,10 @@ def autenticar_cara():
 
         if len(rostros) == 0:
             print("[INFO] No se detectaron rostros. Por favor, ajusta tu posición.")
-        
+
         for (x, y, w, h) in rostros:
             print("[INFO] Rostro detectado. Procesando...")
-            cara = gris[y:y+h, x:x+w]
+            cara = gris[y:y + h, x:x + w]
             cara = cv2.resize(cara, (200, 200))
             label, confidence = recognizer.predict(cara)
             if confidence < 50:
@@ -223,54 +234,62 @@ def autenticar_cara():
     cv2.destroyAllWindows()
     return nombre_usuario
 
-# ------------------- Menú Principal ------------------- #
-def menu():
+# ------------------- Función auxiliar para seleccionar archivos o carpetas ------------------- #
+
+def seleccionar_archivo_o_carpeta_con_autenticacion(accion):
+    nombre = autenticar_cara()
+    if not nombre:
+        messagebox.showerror("Error", "Autenticación facial fallida. No se puede continuar.")
+        return
+
+    ruta = filedialog.askopenfilename(title="Selecciona un archivo") or \
+           filedialog.askdirectory(title="Selecciona una carpeta")
+
+    if ruta:
+        try:
+            accion(ruta, nombre)
+            messagebox.showinfo("Éxito", f"Operación completada para {ruta}.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al realizar la operación: {e}")
+    else:
+        messagebox.showerror("Error", "No se seleccionó ninguna ruta.")
+
+
+
+# ------------------- Interfaz Gráfica Principal ------------------- #
+def iniciar_aplicacion():
     os.makedirs("datos/caras_registradas", exist_ok=True)
+
     root = Tk()
-    root.withdraw()
+    root.title("Sistema de Autenticación Facial")
+    root.geometry("400x400")
 
-    while True:
-        print("\n--- Sistema de Autenticación Facial ---")
-        print("1. Registrar una nueva cara")
-        print("2. Entrenar modelo de reconocimiento")
-        print("3. Proteger archivos o carpetas")
-        print("4. Desbloquear archivos o carpetas")
-        print("5. Salir")
-        opcion = input("Selecciona una opción: ")
+    Label(root, text="Sistema de Autenticación Facial", font=("Arial", 14)).pack(pady=20)
 
-        if opcion == "1":
-            nombre = input("Introduce el nombre del usuario: ")
-            registrar_cara(nombre)
+    Label(root, text="Nombre de usuario (solo para registrar o entrenar):").pack(pady=5)
+    nombre_entry = Entry(root, width=30)
+    nombre_entry.pack(pady=5)
 
-        elif opcion == "2":
-            entrenar_modelo()
+    Button(root, text="Registrar Nueva Cara",
+           command=lambda: registrar_cara(nombre_entry.get()),
+           width=30).pack(pady=5)
 
-        elif opcion == "3":
-            nombre = autenticar_cara()
-            if nombre:
-                print("[INFO] Selecciona un archivo o carpeta a proteger.")
-                ruta = filedialog.askopenfilename(title="Selecciona un archivo") or filedialog.askdirectory(title="Selecciona una carpeta")
-                if ruta:
-                    cifrar_archivos_o_carpetas(ruta, nombre)
-                else:
-                    print("[ERROR] No se seleccionó ninguna ruta.")
+    Button(root, text="Entrenar Modelo",
+           command=entrenar_modelo,
+           width=30).pack(pady=5)
 
-        elif opcion == "4":
-            nombre = autenticar_cara()
-            if nombre:
-                print("[INFO] Selecciona un archivo o carpeta a desbloquear.")
-                ruta = filedialog.askopenfilename(title="Selecciona un archivo") or filedialog.askdirectory(title="Selecciona una carpeta")
-                if ruta:
-                    descifrar_archivos_o_carpetas(ruta, nombre)
-                else:
-                    print("[ERROR] No se seleccionó ninguna ruta.")
+    Button(root, text="Proteger Archivos",
+           command=lambda: seleccionar_archivo_o_carpeta_con_autenticacion(cifrar_archivos_o_carpetas),
+           width=30).pack(pady=5)
 
-        elif opcion == "5":
-            print("Saliendo del sistema...")
-            break
+    Button(root, text="Desbloquear Archivos",
+           command=lambda: seleccionar_archivo_o_carpeta_con_autenticacion(descifrar_archivos_o_carpetas),
+           width=30).pack(pady=5)
 
-        else:
-            print("[ERROR] Opción no válida.")
+    Button(root, text="Salir", command=root.quit, width=30).pack(pady=20)
+
+    root.mainloop()
+
 
 if __name__ == "__main__":
-    menu()
+    iniciar_aplicacion()
