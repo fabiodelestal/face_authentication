@@ -200,6 +200,8 @@ def autenticar_cara():
 
     autenticado = False
     nombre_usuario = None
+    intentos = 0  # Contador de intentos fallidos
+    max_intentos = 20  # Máximo número de intentos
 
     print("[INFO] Buscando rostro en la cámara. Asegúrate de estar frente a la cámara...")
     while not autenticado:
@@ -212,22 +214,27 @@ def autenticar_cara():
         rostros = detector.detectMultiScale(gris, scaleFactor=1.1, minNeighbors=5)
 
         if len(rostros) == 0:
-            print("[INFO] No se detectaron rostros. Por favor, ajusta tu posición.")
-
-        for (x, y, w, h) in rostros:
-            print("[INFO] Rostro detectado. Procesando...")
-            cara = gris[y:y + h, x:x + w]
-            cara = cv2.resize(cara, (200, 200))
-            label, confidence = recognizer.predict(cara)
-            if confidence < 50:
-                nombre_usuario = label_dict[label]
-                print(f"[INFO] Autenticación exitosa: {nombre_usuario} (Confianza: {confidence:.2f})")
-                autenticado = True
+            print(f"[INFO] No se detectaron rostros. Intentos fallidos: {intentos + 1}/{max_intentos}")
+            intentos += 1
+            if intentos >= max_intentos:
+                print("[ERROR] No se detectó ningún rostro después de varios intentos. Saliendo del programa...")
                 break
-            else:
-                print(f"[INFO] Rostro no reconocido. Confianza: {confidence:.2f}. Intentando nuevamente...")
+        else:
+            for (x, y, w, h) in rostros:
+                print("[INFO] Rostro detectado. Procesando...")
+                cara = gris[y:y + h, x:x + w]
+                cara = cv2.resize(cara, (200, 200))
+                label, confidence = recognizer.predict(cara)
+                if confidence < 50:
+                    nombre_usuario = label_dict[label]
+                    print(f"[INFO] Autenticación exitosa: {nombre_usuario} (Confianza: {confidence:.2f})")
+                    autenticado = True
+                    break
+                else:
+                    print(f"[INFO] Rostro no reconocido. Confianza: {confidence:.2f}. Intentando nuevamente...")
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
+            print("[INFO] Saliendo del programa manualmente...")
             break
 
     camara.release()
